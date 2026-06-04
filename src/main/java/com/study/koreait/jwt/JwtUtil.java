@@ -63,9 +63,7 @@ public class JwtUtil {
 
     // 요청 헤더가 "Bearer <토큰>"형식인지 확인, 제거 메서드
     public boolean isBearer(String header) {
-        boolean isNotNull = header != null;
-        boolean isStartWithBearer = header.startsWith("Bearer ");
-        return isNotNull && isStartWithBearer;
+        return header != null && header.startsWith("Bearer ");
     }
 
 

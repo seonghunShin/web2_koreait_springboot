@@ -9,6 +9,7 @@ package com.study.koreait.controller.advice;
 
 import com.study.koreait.exception.ProductException;
 import com.study.koreait.exception.StudentException;
+import com.study.koreait.exception.UserException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.validation.BindingResult;
@@ -65,6 +66,13 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(StudentException.class)
     public ResponseEntity<?> handleStudentException(StudentException e) {
+        return ResponseEntity
+                .status(e.getStatusCode())
+                .body(e.getMessage());
+    }
+    // UserException
+    @ExceptionHandler(UserException.class)
+    public ResponseEntity<?> handleStudentException(UserException e) {
         return ResponseEntity
                 .status(e.getStatusCode())
                 .body(e.getMessage());
