@@ -1,0 +1,166 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.study.koreait.mapper.PostMapper">
+    <!--  ResultMap  -->
+    <!--  select 결과를 자바의 어떤 타입으로 매칭할건지 정의하는 것  -->
+    <resultMap id="postMap" type="com.study.koreait.entity.Post">
+        <!--    pk매핑    -->
+        <id property="postId" column="post_id" />
+        <!--    기본필드 매핑    -->
+        <result property="title" column="title" />
+        <result property="content" column="content" />
+        <result property="createAt" column="create_at" />
+        <result property="userId" column="user_id" />
+        <!--    1:N 관계 매핑    -->
+        <collection property="comments" resultMap="commentsMap" javaType="list" />
+    </resultMap>
+
+    <!--  comments의 resultMap  -->
+    <resultMap id="commentsMap" type="com.study.koreait.entity.Comments">
+        <id property="commentId" column="comment_id" />
+        <result property="body" column="body" />
+    </resultMap>
+
+
+    <!--  SQL  -->
+    <!--  id에는 추상메서드 이름을 매핑해준다  -->
+    <select
+        id="findAll"
+        resultType="com.study.koreait.entity.Post"
+    >
+        select * from post
+    </select>
+
+    <!--  left 조인할때 댓글이 없는 게시글은 빈리스트를 만들어옴  -->
+    <select
+            id="findAllPostsWithComments"
+            resultMap="postMap"
+    >
+        select
+            p.post_id,
+            p.title,
+            p.content,
+            p.create_at,
+            c.comment_id,
+            c.author,
+            c.body
+        from post p
+        left join comments c on p.post_id = c.post_id
+        order by p.post_id, c.comment_id
+    </select>
+
+    <select id="detailSearchPosts" resultType="Post">
+        select
+            *
+        from
+            post
+        where
+            1=1
+        <if test="titleKeyword != null and titleKeyword != ''">
+            and title like concat('', #{titleKeyword}, '')
+        </if>
+        <if test="contentKeyword != null and contentKeyword != ''">
+            and content like concat('', #{contentKeyword}, '')
+        </if>
+        order by
+            create_at desc
+    </select>
+
+
+    <insert id="insertPost">
+        insert into
+            post (title, content)
+        values
+            (#{title}, #{content})
+    </insert>
+
+    <insert id="insertPosts">
+        insert into
+            post(title, content)
+        values
+            <foreach
+                    collection="posts"
+                    item="post"
+                    separator=","
+            >
+                (#{post.title}, #{post.content})
+            </foreach>
+    </insert>
+
+    <!-- 매개변수 이름을 ${}에 작성가능 -->
+    <delete id="deletePostById">
+        delete from
+            post
+        where
+            post_id = #{id}
+    </delete>
+
+    <select id="findPage" resultType="Post">
+        select
+            *
+        from
+            post
+        order by
+            create_at desc
+        limit #{size} offset #{offset}
+    </select>
+
+    <select id="countAll" resultType="long">
+        select
+            count(*)
+        from
+            post
+    </select>
+
+    <!-- 유저의 게시글을 최신순으로 페이지네이션, 각 게시글에는 댓글내용들만 같이 -->
+    <select id="findPostsByUserId" resultMap="postMap">
+        select
+            p.post_id,
+            p.title,
+            p.content,
+            p.create_at,
+            c.comment_id,
+            c.body
+        from
+            (
+            select
+                *
+            from
+                post
+            where
+                user_id = #{userId}
+            <if test="from != null">
+                and create_at &gt;= #{from}
+            </if>
+            <if test="to != null">
+                and create_at &lt; #{to}
+            </if>
+            order by
+                create_at desc
+            limit #{size} offset #{offset}
+        ) p
+        left join comments c on p.post_id = c.post_id
+        order by
+            p.create_at desc, c.comment_id
+
+    </select>
+
+    <select id="countPostsByUserId" resultType="long">
+        select
+            count(*)
+        from
+            post
+        where
+            user_id = #{userId}
+        <if test="from != null">
+            and create_at &gt;= #{from}
+        </if>
+        <if test="to != null">
+            and create_at &lt; #{to}
+        </if>
+    </select>
+
+</mapper>
