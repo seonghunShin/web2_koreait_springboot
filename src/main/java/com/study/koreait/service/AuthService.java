@@ -1,6 +1,8 @@
 package com.study.koreait.service;
 
+import com.study.koreait.dto.req.SignInReqDto;
 import com.study.koreait.dto.req.SignUpReqDto;
+import com.study.koreait.dto.res.SignInResDto;
 import com.study.koreait.entity.Roles;
 import com.study.koreait.entity.Users;
 import com.study.koreait.exception.UserException;
@@ -12,6 +14,7 @@ import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.Map;
 import java.util.UUID;
 
 @Service
@@ -43,4 +46,27 @@ public class AuthService {
         }
 
     }
+
+    public SignInResDto signIn(SignInReqDto dto) {
+        // 1) 아이디로 회원 조회
+        Users user = userMapper.getUserByUsername(dto.getUsername())
+                .orElseThrow(() -> new UserException("사용자 정보를 잘못 입력하셨습니다.", HttpStatus.BAD_REQUEST));
+
+        // 2) 비밀번호 비교
+        // matches(평문, 저장된 해시) -> 평문을 해싱해 비교해줌.
+        if (!encoder.matches(dto.getPassword(), user.getPassword())) {
+            throw new UserException("사용자 정보를 잘못 입력하셨습니다.", HttpStatus.BAD_REQUEST);
+        }
+
+        // 3) 토큰 발급
+        String subject = user.getUserId(); // subject: 사용자 식별 데이터
+        String roleName = user.getRoles().getRoleName();
+        // claims: 추가로 토큰에 심을 key-value 정보
+        Map<String, Object> claims = Map.of("role", roleName);
+        String accessToken = jwtUtil.generateAccessToken(subject, claims);
+        return SignInResDto.builder()
+                .accessToken(accessToken)
+                .build();
+    }
+
 }

@@ -1,5 +1,6 @@
 package com.study.koreait.controller;
 
+import com.study.koreait.dto.req.SignInReqDto;
 import com.study.koreait.dto.req.SignUpReqDto;
 import com.study.koreait.service.AuthService;
 import jakarta.validation.Valid;
@@ -7,10 +8,10 @@ import lombok.RequiredArgsConstructor;
 import lombok.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.web.bind.annotation.*;
 
 @RestController
 @RequiredArgsConstructor
@@ -29,8 +30,21 @@ public class AuthController {
     // HTTPS를 쓰면 body는 암호화되서 가로채도 볼 수 없음
     // GET 요청의 url은 암호화되지 않기 때문에 가로채서 볼 수 있음.
     @PostMapping("/signin")
-    public ResponseEntity<?> signIn() {
-        return ResponseEntity.ok("jwt 토큰");
+    public ResponseEntity<?> signIn(@RequestBody @Valid SignInReqDto dto) {
+        return ResponseEntity.ok(authService.signIn(dto));
+    }
+
+    @GetMapping("/me-1")
+    public ResponseEntity<?> meOne(){
+        // 필터를 통해 저장된 Authentication을 내가 직접 꺼내오는 방법
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        String userId = (String) authentication.getPrincipal();
+        return ResponseEntity.ok(userId);
+    }
+
+    @GetMapping("/me-2")
+    public ResponseEntity<?> meTwo(@AuthenticationPrincipal String userId) {
+        return ResponseEntity.ok(userId);
     }
 
 }
