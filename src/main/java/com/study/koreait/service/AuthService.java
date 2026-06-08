@@ -3,12 +3,15 @@ package com.study.koreait.service;
 import com.study.koreait.dto.req.SignInReqDto;
 import com.study.koreait.dto.req.SignUpReqDto;
 import com.study.koreait.dto.res.SignInResDto;
+import com.study.koreait.entity.OAuth2User;
 import com.study.koreait.entity.Roles;
 import com.study.koreait.entity.Users;
 import com.study.koreait.exception.UserException;
 import com.study.koreait.jwt.JwtUtil;
+import com.study.koreait.mapper.OAuth2UserMapper;
 import com.study.koreait.mapper.UserMapper;
 import lombok.RequiredArgsConstructor;
+import org.apache.catalina.User;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -21,6 +24,7 @@ import java.util.UUID;
 @RequiredArgsConstructor
 public class AuthService {
     private final UserMapper userMapper;
+    private final OAuth2UserMapper oAuth2UserMapper;
     private final JwtUtil jwtUtil;
     private final BCryptPasswordEncoder encoder;
 
@@ -59,6 +63,83 @@ public class AuthService {
         }
 
         // 3) 토큰 발급
+        return  issueAccessToken(user);
+    }
+
+    /*
+        1) 이전에 소셜로 로그인한적 있다 -> 토큰만 발급
+        2) 이미 gmail로 가입한적있다 -> 연결
+        3) 둘 다 없으면 -> 신규 회원가입 -> 소셜 연결 -> 토큰 발급
+     */
+    @Transactional(rollbackFor = Exception.class)
+    public SignInResDto oAuth2SignIn(String provider, String providerUserId, String email) {
+        if(provider == null || provider.isBlank() || providerUserId == null || providerUserId.isBlank()) {
+            throw new UserException("필수정보가 누락되어 로그인에 실패하였습니다.", HttpStatus.BAD_REQUEST);
+        }
+        if (email == null || email.isBlank()) {
+            throw new UserException(provider + "이메일이 누락되어 로그인에 실패하였습니다.", HttpStatus.BAD_REQUEST);
+        }
+
+        // 1) 이미 소셜 로그인 한 적 있는 경우
+        OAuth2User linked = oAuth2UserMapper.findOAuth2UserByProviderInfo(provider, providerUserId).orElse(null);
+        if (linked != null) { // 있다면
+            Users user = userMapper.getUserById(linked.getUserId())
+                    .orElseThrow(() -> new UserException("연결된 회원 정보가 없습니다.", HttpStatus.BAD_REQUEST));
+
+            return issueAccessToken(user);
+        }
+
+        // 2) 소셜 로그인 한 적 없고, 해당 email로 가입한 이력이 있는 경우
+        // 소셜만 연결 -> OAuth2User에 userId만 연결
+        Users existing = userMapper.getUserByEmail(email).orElse(null);
+        if (existing != null) { // 일반회원 가입은 되어있다면
+            String userId = existing.getUserId();
+            OAuth2User insertData = OAuth2User.builder()
+                    .userId(userId)
+                    .provider(provider)
+                    .providerUserId(providerUserId)
+                    .build();
+            oAuth2UserMapper.insertOAuth2User(insertData);
+
+            return issueAccessToken(existing);
+        }
+
+        // 3) 신규 자동가입
+        // OAuth 전용 계정을 만들어 줄것 -> 일반 로그인은 안하는 계정
+        String userId = UUID.randomUUID().toString();
+        Users user = Users.builder()
+                .userId(userId)
+                // google_1231s56d42
+                .username(provider + "_" + providerUserId)
+                // 일반 로그인 안함 -> 랜덤 password
+                .password(encoder.encode(UUID.randomUUID().toString()))
+                .name(provider + " 사용자")
+                .email(email)
+                .build();
+        // Users에 user insert
+        if (userMapper.addUser(user) <= 0) {
+            throw new UserException("OAuth2 가입 중 오류 발생", HttpStatus.INTERNAL_SERVER_ERROR);
+        }
+        // OAuthUser에 OAuthUser insert
+        OAuth2User insertData = OAuth2User.builder()
+                .userId(user.getUserId())
+                .provider(provider)
+                .providerUserId(providerUserId)
+                .build();
+        oAuth2UserMapper.insertOAuth2User(insertData);
+        // user에 role이 있는걸로 select!
+        // addUser는 role_id = 1만 넣고 Roles 객체는 안 채우므로, 다시 읽어와야함.
+        // roleName이 jwt에 들어가야하기 때문.
+        Users created = userMapper.getUserById(userId)
+                .orElseThrow(() -> new UserException("OAuth2 가입 중 오류 발생", HttpStatus.INTERNAL_SERVER_ERROR));
+        // user로 토큰 만들어 return
+        return issueAccessToken(created);
+
+    }
+
+    // 토큰 발급
+    // 내부 코드를 신경 안쓴다면 Users객체를 넣으면 토큰으로 바뀌어 나옴.
+    private SignInResDto issueAccessToken(Users user) {
         String subject = user.getUserId(); // subject: 사용자 식별 데이터
         String roleName = user.getRoles().getRoleName();
         // claims: 추가로 토큰에 심을 key-value 정보

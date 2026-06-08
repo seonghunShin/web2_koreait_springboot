@@ -16,6 +16,6 @@ public class OAuth2User {
     private String userId; // users 테이블의 fk
     private String provider; // 구글/카카오/네이버
     private String providerUserId; // 구글/카카오/네이버가 알려주는 식별자
-    private LocalDateTime crateAt;
+    private LocalDateTime createAt;
     private LocalDateTime updateAt;
 }
