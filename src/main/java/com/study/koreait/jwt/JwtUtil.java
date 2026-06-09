@@ -1,9 +1,6 @@
 package com.study.koreait.jwt;
 
-import io.jsonwebtoken.Claims;
-import io.jsonwebtoken.JwtBuilder;
-import io.jsonwebtoken.JwtException;
-import io.jsonwebtoken.Jwts;
+import io.jsonwebtoken.*;
 import io.jsonwebtoken.io.Decoders;
 import io.jsonwebtoken.security.Keys;
 import org.springframework.beans.factory.annotation.Value;
@@ -71,6 +68,17 @@ public class JwtUtil {
         return header.substring("Bearer ".length());
     }
 
+    // 이메일 관련 //
+    public String generateEmailVerifyToken(String sub) {
+        long now = System.currentTimeMillis();
 
+        return Jwts.builder()
+                .subject(sub)
+                .issuedAt(new Date(now))
+                .expiration(new Date(now + accessExpireMillis)) // 15분
+                .claim("type", "EMAIL_VERIFY")
+                .signWith(key)
+                .compact();
+    }
 
 }

@@ -7,6 +7,7 @@ package com.study.koreait.controller.advice;
 // -> 해당예외를 처리할 수 있는 핸들러 컨트롤러를 찾는다.
 
 
+import com.study.koreait.exception.BusinessException;
 import com.study.koreait.exception.ProductException;
 import com.study.koreait.exception.StudentException;
 import com.study.koreait.exception.UserException;
@@ -56,23 +57,11 @@ public class GlobalExceptionHandler {
                 .body(errorMap);
     }
 
-
-    @ExceptionHandler(ProductException.class)
-    public ResponseEntity<?> handleProductException(ProductException e) {
-        return ResponseEntity
-                .status(e.getStatusCode())
-                .body(e.getMessage());
-    }
-
-    @ExceptionHandler(StudentException.class)
-    public ResponseEntity<?> handleStudentException(StudentException e) {
-        return ResponseEntity
-                .status(e.getStatusCode())
-                .body(e.getMessage());
-    }
-    // UserException
-    @ExceptionHandler(UserException.class)
-    public ResponseEntity<?> handleStudentException(UserException e) {
+    // 비즈니스 예외 공통 핸들러
+    // 던져진 예외와 정확히 일치하는 핸들러가 있으면 그 핸들러가 호출 됨.
+    // 없으면, 부모타입의 핸들러를 찾아서 호출함.
+    @ExceptionHandler(BusinessException.class)
+    public ResponseEntity<?> handleBusinessException(UserException e) {
         return ResponseEntity
                 .status(e.getStatusCode())
                 .body(e.getMessage());
